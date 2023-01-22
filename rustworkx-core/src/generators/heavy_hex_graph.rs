@@ -10,6 +10,8 @@
 // License for the specific language governing permissions and limitations
 // under the License.
 
+use std::cmp::max;
+use std::cmp::min;
 use std::hash::Hash;
 
 use petgraph::data::{Build, Create};
@@ -131,15 +133,22 @@ where
     let num_syndrome = (d - 1) * (d + 1) / 2;
     let num_flag = d * (d - 1);
 
+    let num_nodes = 8;
     let nodes_data: Vec<G::NodeId> = (0..num_data)
         .map(|_| graph.add_node(default_node_weight()))
         .collect();
+    let data_len = min(num_nodes, nodes_data.len());
+    println!("data_len {:?}", data_len);
     let nodes_syndrome: Vec<G::NodeId> = (0..num_syndrome)
         .map(|_| graph.add_node(default_node_weight()))
         .collect();
+    let syn_len = max(0, min(data_len - num_nodes, nodes_syndrome.len()));
+    println!("syn_len {:?}", syn_len);
     let nodes_flag: Vec<G::NodeId> = (0..num_flag)
         .map(|_| graph.add_node(default_node_weight()))
         .collect();
+    let flag_len = max(0, min(syn_len - num_nodes, nodes_flag.len()));
+    println!("flag_len {:?}", flag_len);
 
     // connect data and flags
     for (i, flag_chunk) in nodes_flag.chunks(d - 1).enumerate() {
