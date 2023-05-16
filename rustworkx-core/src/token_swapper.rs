@@ -580,12 +580,64 @@ mod test_token_swapper {
         assert_eq!(5, swaps.len());
         assert_eq!(expected, new_map);
     }
+
+    #[test]
+    fn test_large_partial_random() {
+        use rand::distributions::{Distribution, Uniform};
+        use rand::prelude::*;
+        use rand_pcg::Pcg64;
+        use crate::generators::random_graph;
+
+        let mut rng: Pcg64 = Pcg64::seed_from_u64(4);
+
+
+        // Test a random (partial) mapping on a large randomly generated graph
+        let size = 100;
+        // Note that graph may have "gaps" in the node counts, i.e. the numbering is noncontiguous.
+        let g: petgraph::stable_graph::StableGraph<(), ()> = random_graph::gnm_random_graph(size, size^2 / 10, Some(4), || (), || ());
+        for node in g.node_indices() {
+            let edge = g.find_edge(node, node);
+            if edge.is_some() {
+                g.remove_edge(edge.unwrap());  // Remove self-loops.
+            }
+        }
+
+        // Make sure the graph is connected by adding C_n
+        for i in 0..(g.node_count() - 1) {
+            g.add_edge(NodeIndex::new(i), NodeIndex::new(i+1), ());
+        }
+
+        let between = Uniform::new(0, g.node_count());
+        let perm: Vec<(NodeIndex, NodeIndex)> = g.node_indices()
+            .map(|idx| (idx, between.sample(&mut rng)))
+            .collect()
+            .retain(|(a, b)| a % 2 == 0);
+
+        println!("{:?}", perm);
+
+
+        // let g = petgraph::graph::UnGraph::<(), ()>::from_edges(&[(0, 1), (1, 2), (2, 3)]);
+
+
+
+
+        // let mapping = HashMap::from([
+        //     (NodeIndex::new(0), NodeIndex::new(3)),
+        //     (NodeIndex::new(1), NodeIndex::new(2)),
+        // ]);
+        // let mut new_map = mapping.clone();
+        // let swaps = token_swapper(&g, mapping, Some(4), Some(4), Some(50));
+        // do_swap(&mut new_map, &swaps);
+        // let expected = HashMap::from([
+        //     (NodeIndex::new(2), NodeIndex::new(2)),
+        //     (NodeIndex::new(3), NodeIndex::new(3)),
+        // ]);
+        // assert_eq!(5, swaps.len());
+        // assert_eq!(expected, new_map);
+    }
 }
 
-// TODO: Port this test when rustworkx-core adds random graphs
-
 // def test_large_partial_random(self) -> None:
-//     """Test a random (partial) mapping on a large randomly generated graph"""
 //     size = 100
 //     # Note that graph may have "gaps" in the node counts, i.e. the numbering is noncontiguous.
 //     graph = rx.undirected_gnm_random_graph(size, size**2 // 10)
