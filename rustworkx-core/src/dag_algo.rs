@@ -13,8 +13,9 @@
 use std::cmp::{Eq, Ordering};
 use std::collections::BinaryHeap;
 use std::hash::Hash;
+use std::vec::IntoIter;
 
-use hashbrown::HashMap;
+use hashbrown::{HashMap, HashSet};
 
 use petgraph::algo;
 use petgraph::visit::{
@@ -311,6 +312,63 @@ where
     let path_weight = dist[first].0; // The total weight of the longest path
 
     Ok(Some((path, path_weight)))
+}
+
+/// Collect runs that match a filter function
+///
+/// A run is a path of nodes where there is only a single successor and all
+/// nodes in the path match the given condition. Each node in the graph can
+/// appear in only a single run.
+///
+/// :param PyDiGraph graph: The graph to find runs in
+/// :param filter_fn: The filter function to use for matching nodes. It takes
+///     in one argument, the node data payload/weight object, and will return a
+///     boolean whether the node matches the conditions or not. If it returns
+///     ``False`` it will skip that node.
+///
+/// :returns: a list of runs, where each run is a list of node data
+///     payload/weight for the nodes in the run
+/// :rtype: list
+pub fn collect_runs<G, F, E>(graph: G, mut filter_fn: F) -> Result<IntoIter<Vec<<G as GraphBase>::NodeId>>, E>
+where
+    G: GraphProp<EdgeType = Directed> + IntoNodeIdentifiers + Visitable + NodeCount + IntoNeighborsDirected,
+    F: FnMut(G::NodeId) -> Result<bool, E>,
+    <G as GraphBase>::NodeId: Hash + Eq + PartialOrd,
+{
+    let mut out_list: Vec<Vec<G::NodeId>> = Vec::new();
+    let mut seen: HashSet<G::NodeId> = HashSet::with_capacity(graph.node_count());
+
+    let nodes = match algo::toposort(graph, None) {
+        Ok(nodes) => nodes,
+        Err(_err) => return Ok(out_list.into_iter()) //Err(DAGHasCycle::new_err("Sort encountered a cycle")),
+    };
+    for node in nodes {
+        if !filter_fn(node)? || seen.contains(&node) {
+            continue;
+        }
+        seen.insert(node);
+        let mut group: Vec<G::NodeId> = vec![node.clone()];
+        let mut successors: Vec<G::NodeId> = graph
+            .neighbors_directed(node, petgraph::Direction::Outgoing)
+            .collect();
+        successors.dedup();
+
+        while successors.len() == 1
+            && filter_fn(successors[0])?
+            && !seen.contains(&successors[0])
+        {
+            group.push(successors[0].clone());
+            seen.insert(successors[0]);
+            successors = graph
+                .neighbors_directed(successors[0], petgraph::Direction::Outgoing)
+                .collect();
+            successors.dedup();
+        }
+        if !group.is_empty() {
+            out_list.push(group);
+        }
+    }
+    Ok(out_list.into_iter())
 }
 
 #[cfg(test)]

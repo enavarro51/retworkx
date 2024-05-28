@@ -20,6 +20,7 @@ use crate::{digraph, DAGHasCycle, InvalidNode, StablePyGraph};
 
 use rustworkx_core::dag_algo::lexicographical_topological_sort as core_lexico_topo_sort;
 use rustworkx_core::dag_algo::longest_path as core_longest_path;
+use rustworkx_core::dag_algo::collect_runs as core_collect_runs;
 use rustworkx_core::traversal::dfs_edges;
 
 use pyo3::exceptions::PyValueError;
@@ -560,46 +561,52 @@ pub fn collect_runs(
     graph: &digraph::PyDiGraph,
     filter_fn: PyObject,
 ) -> PyResult<Vec<Vec<PyObject>>> {
-    let mut out_list: Vec<Vec<PyObject>> = Vec::new();
-    let mut seen: HashSet<NodeIndex> = HashSet::with_capacity(graph.node_count());
 
-    let filter_node = |node: &PyObject| -> PyResult<bool> {
-        let res = filter_fn.call1(py, (node,))?;
-        res.extract(py)
-    };
+    println!("\n\nWHATTTTTT");
+    let mut out_list: Vec<Vec<PyObject>> = 
+        core_collect_runs(&graph.graph, filter_fn)
+        .collect();
 
-    let nodes = match algo::toposort(&graph.graph, None) {
-        Ok(nodes) => nodes,
-        Err(_err) => return Err(DAGHasCycle::new_err("Sort encountered a cycle")),
-    };
-    for node in nodes {
-        if !filter_node(&graph.graph[node])? || seen.contains(&node) {
-            continue;
-        }
-        seen.insert(node);
-        let mut group: Vec<PyObject> = vec![graph.graph[node].clone_ref(py)];
-        let mut successors: Vec<NodeIndex> = graph
-            .graph
-            .neighbors_directed(node, petgraph::Direction::Outgoing)
-            .collect();
-        successors.dedup();
+    // let mut seen: HashSet<NodeIndex> = HashSet::with_capacity(graph.node_count());
 
-        while successors.len() == 1
-            && filter_node(&graph.graph[successors[0]])?
-            && !seen.contains(&successors[0])
-        {
-            group.push(graph.graph[successors[0]].clone_ref(py));
-            seen.insert(successors[0]);
-            successors = graph
-                .graph
-                .neighbors_directed(successors[0], petgraph::Direction::Outgoing)
-                .collect();
-            successors.dedup();
-        }
-        if !group.is_empty() {
-            out_list.push(group);
-        }
-    }
+    // let filter_node = |node: &PyObject| -> PyResult<bool> {
+    //     let res = filter_fn.call1(py, (node,))?;
+    //     res.extract(py)
+    // };
+
+    // let nodes = match algo::toposort(&graph.graph, None) {
+    //     Ok(nodes) => nodes,
+    //     Err(_err) => return Err(DAGHasCycle::new_err("Sort encountered a cycle")),
+    // };
+    // for node in nodes {
+    //     if !filter_node(&graph.graph[node])? || seen.contains(&node) {
+    //         continue;
+    //     }
+    //     seen.insert(node);
+    //     let mut group: Vec<PyObject> = vec![graph.graph[node].clone_ref(py)];
+    //     let mut successors: Vec<NodeIndex> = graph
+    //         .graph
+    //         .neighbors_directed(node, petgraph::Direction::Outgoing)
+    //         .collect();
+    //     successors.dedup();
+
+    //     while successors.len() == 1
+    //         && filter_node(&graph.graph[successors[0]])?
+    //         && !seen.contains(&successors[0])
+    //     {
+    //         group.push(graph.graph[successors[0]].clone_ref(py));
+    //         seen.insert(successors[0]);
+    //         successors = graph
+    //             .graph
+    //             .neighbors_directed(successors[0], petgraph::Direction::Outgoing)
+    //             .collect();
+    //         successors.dedup();
+    //     }
+    //     if !group.is_empty() {
+    //         out_list.push(group);
+    //     }
+    // }
+    println!("This actually works??");
     Ok(out_list)
 }
 
