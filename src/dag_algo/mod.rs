@@ -18,9 +18,9 @@ use rustworkx_core::dictmap::InitWithHasher;
 use super::iterators::NodeIndices;
 use crate::{digraph, DAGHasCycle, InvalidNode, StablePyGraph};
 
+use rustworkx_core::dag_algo::collect_runs as core_collect_runs;
 use rustworkx_core::dag_algo::lexicographical_topological_sort as core_lexico_topo_sort;
 use rustworkx_core::dag_algo::longest_path as core_longest_path;
-use rustworkx_core::dag_algo::collect_runs as core_collect_runs;
 use rustworkx_core::traversal::dfs_edges;
 
 use pyo3::exceptions::PyValueError;
@@ -554,18 +554,45 @@ pub fn topological_sort(graph: &digraph::PyDiGraph) -> PyResult<NodeIndices> {
 /// :returns: a list of runs, where each run is a list of node data
 ///     payload/weight for the nodes in the run
 /// :rtype: list
+// fn longest_path<F, T>(graph: &digraph::PyDiGraph, mut weight_fn: F) -> PyResult<(Vec<usize>, T)>
+// where
+//     F: FnMut(usize, usize, &PyObject) -> PyResult<T>,
+//     T: Num + Zero + PartialOrd + Copy,
+// {
+
+// #[pyfunction]
+// #[pyo3(signature = (dag, /, key, *, reverse=false, initial=None))]
+// pub fn lexicographical_topological_sort(
+//     py: Python,
+//     dag: &digraph::PyDiGraph,
+//     key: PyObject,
+//     reverse: bool,
+//     initial: Option<&Bound<PyAny>>,
+// ) -> PyResult<PyObject> {
+//     let key_callable = |a: NodeIndex| -> PyResult<String> {
 #[pyfunction]
-#[pyo3(text_signature = "(graph, filter_fn)")]
+#[pyo3(signature = (graph, /, filter_fn, *))]
 pub fn collect_runs(
     py: Python,
     graph: &digraph::PyDiGraph,
     filter_fn: PyObject,
 ) -> PyResult<Vec<Vec<PyObject>>> {
+    //println!("\n\nWHATTTTTT");
+    // let filter_callable = |node: &PyObject| -> PyResult<bool> {
+    //     let res = filter_fn.call1(py, (node,))?;
+    //     res.extract(py)
+    // };
 
-    println!("\n\nWHATTTTTT");
-    let mut out_list: Vec<Vec<PyObject>> = 
-        core_collect_runs(&graph.graph, filter_fn)
-        .collect();
+    // let key_callable = |a: NodeIndex| -> PyResult<String> {
+    //     let weight = &dag.graph[a];
+    //     let res: String = key.call1(py, (weight,))?.extract(py)?;
+    //     Ok(res)
+    // };
+    let filter_callable = |node: NodeIndex| -> PyResult<bool> {
+        let res: bool = filter_fn.call1(py, (node,))?.extract(py)?;
+        Ok(res)
+    };
+    let out_list = core_collect_runs(&graph.graph, filter_callable).unwrap();
 
     // let mut seen: HashSet<NodeIndex> = HashSet::with_capacity(graph.node_count());
 

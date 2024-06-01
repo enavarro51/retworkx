@@ -329,10 +329,17 @@ where
 /// :returns: a list of runs, where each run is a list of node data
 ///     payload/weight for the nodes in the run
 /// :rtype: list
-pub fn collect_runs<G, F, E>(graph: G, mut filter_fn: F) -> Result<IntoIter<Vec<<G as GraphBase>::NodeId>>, E>
+pub fn collect_runs<G, F, E>(
+    graph: G,
+    mut filter_fn: F,
+) -> Result<Vec<Vec<<G as GraphBase>::NodeId>>, E>
 where
-    G: GraphProp<EdgeType = Directed> + IntoNodeIdentifiers + Visitable + NodeCount + IntoNeighborsDirected,
-    F: FnMut(G::NodeId) -> Result<bool, E>,
+    G: GraphProp<EdgeType = Directed>
+        + IntoNodeIdentifiers
+        + Visitable
+        + NodeCount
+        + IntoNeighborsDirected,
+    F: FnMut(<G as GraphBase>::NodeId) -> Result<bool, E>,
     <G as GraphBase>::NodeId: Hash + Eq + PartialOrd,
 {
     let mut out_list: Vec<Vec<G::NodeId>> = Vec::new();
@@ -340,7 +347,7 @@ where
 
     let nodes = match algo::toposort(graph, None) {
         Ok(nodes) => nodes,
-        Err(_err) => return Ok(out_list.into_iter()) //Err(DAGHasCycle::new_err("Sort encountered a cycle")),
+        Err(_err) => return Ok(out_list)//.into_iter()), //Err(DAGHasCycle::new_err("Sort encountered a cycle")),
     };
     for node in nodes {
         if !filter_fn(node)? || seen.contains(&node) {
@@ -353,10 +360,7 @@ where
             .collect();
         successors.dedup();
 
-        while successors.len() == 1
-            && filter_fn(successors[0])?
-            && !seen.contains(&successors[0])
-        {
+        while successors.len() == 1 && filter_fn(successors[0])? && !seen.contains(&successors[0]) {
             group.push(successors[0].clone());
             seen.insert(successors[0]);
             successors = graph
@@ -368,7 +372,7 @@ where
             out_list.push(group);
         }
     }
-    Ok(out_list.into_iter())
+    Ok(out_list)//.into_iter())
 }
 
 #[cfg(test)]
